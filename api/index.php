@@ -1,4 +1,7 @@
 <?php
+// Force correct headers for Vercel
+header('Content-Type: text/html; charset=utf-8');
+
 session_start();
 
 // Database configuration - Use environment variables for Supabase/PostgreSQL
