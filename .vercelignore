@@ -1,0 +1,6 @@
+.git
+node_modules
+.vscode
+*.sql
+check_data.php
+migrate_to_supabase.php
