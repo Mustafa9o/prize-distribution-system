@@ -1,23 +1,29 @@
 <?php
 session_start();
 
-// Database configuration
-$host = 'localhost';
-$dbname = 'prize_db';
-$username = 'root';
-$password = '';
+// Database configuration - Use environment variables for Vercel
+$host = getenv('DB_HOST') ?: 'localhost';
+$dbname = getenv('DB_NAME') ?: 'prize_db';
+$username = getenv('DB_USER') ?: 'root';
+$password = getenv('DB_PASS') ?: '';
 
 $success_message = '';
 $error_message = '';
 
-// Auto-create database and table if not exists
+// Auto-create database and table if not exists (only for local development)
 try {
-    $conn_setup = new PDO("mysql:host=$host", $username, $password);
+    // For Vercel, skip database creation (use existing database)
+    if (getenv('VERCEL')) {
+        $conn_setup = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
+    } else {
+        $conn_setup = new PDO("mysql:host=$host", $username, $password);
+        $conn_setup->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Create database
+        $conn_setup->exec("CREATE DATABASE IF NOT EXISTS $dbname CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        $conn_setup->exec("USE $dbname");
+    }
     $conn_setup->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
-    // Create database
-    $conn_setup->exec("CREATE DATABASE IF NOT EXISTS $dbname CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $conn_setup->exec("USE $dbname");
     
     // Create table
     $sql_create = "CREATE TABLE IF NOT EXISTS winners (
