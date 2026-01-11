@@ -1,0 +1,119 @@
+===============================================
+DEPLOYMENT GUIDE - Prize Winner System
+===============================================
+
+STEPS TO DEPLOY ON LIVE SERVER:
+--------------------------------
+
+1. PREPARE FILES:
+   ✓ Upload the entire 'prize' folder to your server
+   ✓ Files to upload:
+     - index.php (main application)
+     - setup_database.php (optional - for manual setup)
+     - README.md (optional - documentation)
+
+2. UPLOAD TO SERVER:
+   
+   Option A: Using FTP/SFTP Client (FileZilla, WinSCP):
+   - Connect to your server
+   - Navigate to public_html or www folder
+   - Upload the 'prize' folder
+   - URL will be: yourdomain.com/prize/
+
+   Option B: Using cPanel File Manager:
+   - Login to cPanel
+   - Go to File Manager
+   - Navigate to public_html
+   - Click Upload and select all files from prize folder
+   - Or upload as ZIP and extract
+
+3. UPDATE DATABASE CREDENTIALS:
+   
+   Edit index.php (Lines 5-8):
+   
+   CHANGE FROM:
+   $host = 'localhost';
+   $dbname = 'prize_db';
+   $username = 'root';
+   $password = '';
+   
+   CHANGE TO:
+   $host = 'localhost';           // Usually 'localhost' (check with your hosting)
+   $dbname = 'your_database_name'; // Your hosting database name
+   $username = 'your_db_user';     // Your hosting database username
+   $password = 'your_db_password'; // Your hosting database password
+
+4. GET DATABASE CREDENTIALS:
+   
+   In cPanel:
+   - Go to "MySQL Databases"
+   - Create new database or use existing
+   - Create database user
+   - Add user to database with ALL PRIVILEGES
+   - Note down:
+     * Database name (e.g., username_prize_db)
+     * Database user (e.g., username_dbuser)
+     * Password
+
+5. TEST THE APPLICATION:
+   
+   - Visit: yourdomain.com/prize/
+   - The database will be created automatically on first load
+   - Try submitting the form to test
+   - Check if data is saved in database
+
+6. VERIFY DATABASE (Optional):
+   
+   In cPanel > phpMyAdmin:
+   - Select your database
+   - Check if 'winners' table exists
+   - Verify columns: id, name_arabic, name_english, phone_number, created_at
+
+===============================================
+COMMON ISSUES & SOLUTIONS:
+===============================================
+
+Issue 1: "Connection refused" or "Access denied"
+Solution: Double-check database credentials in index.php
+
+Issue 2: "Database does not exist"
+Solution: The app creates it automatically. If it fails, create database manually in cPanel
+
+Issue 3: Arabic text shows as ????
+Solution: Ensure database charset is utf8mb4 (already configured in code)
+
+Issue 4: Permission denied errors
+Solution: Set folder permissions to 755 and files to 644
+
+===============================================
+SECURITY RECOMMENDATIONS:
+===============================================
+
+1. Change database password to strong password
+2. Remove setup_database.php after deployment (optional)
+3. Add input validation for phone numbers
+4. Enable HTTPS/SSL for your domain
+5. Backup database regularly
+
+===============================================
+QUICK CHECKLIST:
+===============================================
+
+☐ Files uploaded to server
+☐ Database credentials updated in index.php
+☐ Database created (or will auto-create)
+☐ Test form submission
+☐ Verify data in database
+☐ Set proper file permissions
+☐ Enable SSL/HTTPS
+
+===============================================
+SUPPORT:
+===============================================
+
+If you need help:
+- Check error logs in cPanel
+- Enable error display: ini_set('display_errors', 1);
+- Contact your hosting support for database details
+
+===============================================

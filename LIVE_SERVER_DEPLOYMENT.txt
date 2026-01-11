@@ -1,0 +1,211 @@
+═══════════════════════════════════════════════════════════════
+    RATIO COFFEE PRIZE SYSTEM - LIVE SERVER DEPLOYMENT GUIDE
+═══════════════════════════════════════════════════════════════
+
+📋 FILES TO UPLOAD
+══════════════════
+Upload ALL files from D:\xampp\htdocs\prize\ to your live server:
+
+✅ index.php                  - Main prize form page
+✅ visit.php                  - Unique URL redirect handler
+✅ log_visit.php             - Visitor tracking endpoint
+✅ view_visitors.php         - Visitor log viewer
+✅ view_links.php            - Unique URLs display
+✅ generate_links.php        - Generate tracking URLs
+✅ logo.png                  - Ratio Coffee logo
+✅ setup_database.php        - Manual database setup (optional)
+
+🔧 SERVER REQUIREMENTS
+═══════════════════════
+✓ PHP 7.4 or higher
+✓ MySQL/MariaDB database
+✓ Apache/Nginx web server
+✓ PDO PHP extension (usually enabled by default)
+✓ mbstring extension for Arabic text support
+
+📝 CONFIGURATION STEPS
+════════════════════════
+
+1. UPDATE DATABASE CREDENTIALS
+   ────────────────────────────
+   Edit these files and change database settings:
+   
+   Files to edit:
+   - index.php (lines 4-7)
+   - visit.php (lines 4-7)
+   - log_visit.php (lines 4-7)
+   - view_visitors.php (lines 4-7)
+   - view_links.php (lines 4-7)
+   - generate_links.php (lines 4-7)
+   
+   Change FROM (local):
+   ────────────────────
+   $host = 'localhost';
+   $dbname = 'prize_db';
+   $username = 'root';
+   $password = '';
+   
+   Change TO (your live server):
+   ─────────────────────────────
+   $host = 'localhost';           // Or your DB host
+   $dbname = 'your_db_name';      // Your actual database name
+   $username = 'your_db_user';    // Your database username
+   $password = 'your_db_password'; // Your database password
+
+
+2. UPDATE BASE URL IN view_links.php
+   ──────────────────────────────────
+   Edit view_links.php (around line 60)
+   
+   Change FROM:
+   ────────────
+   $base_url = "http://10.128.237.33/prize/visit.php?code=";
+   
+   Change TO:
+   ──────────
+   $base_url = "https://yourdomain.com/prize/visit.php?code=";
+   (Or wherever your files are hosted)
+
+
+3. UPLOAD FILES
+   ────────────
+   - Use FTP/SFTP client (FileZilla, WinSCP, etc.)
+   - Upload all files to your web directory
+   - Example: public_html/prize/ or www/prize/
+   - Ensure logo.png is uploaded correctly
+
+
+4. SET FILE PERMISSIONS (Linux servers)
+   ────────────────────────────────────
+   Files: 644 (rw-r--r--)
+   Directories: 755 (rwxr-xr-x)
+   
+   Command:
+   find /path/to/prize -type f -exec chmod 644 {} \;
+   find /path/to/prize -type d -exec chmod 755 {} \;
+
+
+5. CREATE DATABASE
+   ───────────────
+   The database will auto-create when you first visit index.php
+   
+   OR manually create using phpMyAdmin:
+   - Database name: prize_db (or your chosen name)
+   - Collation: utf8mb4_unicode_ci
+   - Run generate_links.php to create tables and employee links
+
+
+6. GENERATE EMPLOYEE LINKS
+   ────────────────────────
+   Visit: https://yourdomain.com/prize/generate_links.php
+   This will:
+   - Delete old test data
+   - Create fresh unique tracking URLs for all 145 employees
+   - Show success message
+
+
+7. TEST THE SYSTEM
+   ───────────────
+   Main page:
+   https://yourdomain.com/prize/index.php
+   
+   View unique URLs:
+   https://yourdomain.com/prize/view_links.php
+   
+   View visitor logs:
+   https://yourdomain.com/prize/view_visitors.php
+   
+   Test a unique URL:
+   Copy any URL from view_links.php and test it
+
+
+🔒 SECURITY RECOMMENDATIONS
+═══════════════════════════
+
+1. PROTECT ADMIN PAGES
+   ───────────────────
+   Add password protection to:
+   - view_visitors.php
+   - view_links.php
+   - generate_links.php
+   
+   Use .htaccess (Apache) or web server auth
+
+
+2. USE HTTPS
+   ─────────
+   Ensure your domain has SSL certificate
+   URLs should start with https://
+
+
+3. BACKUP DATABASE
+   ───────────────
+   Regular backups of prize_db database
+   Export tables: winners, page_visits, unique_links
+
+
+4. HIDE SENSITIVE FILES
+   ────────────────────
+   Optional: Create .htaccess to block direct access:
+   
+   <Files "setup_database.php">
+       Order Allow,Deny
+       Deny from all
+   </Files>
+
+
+📊 DATABASE TABLES
+═══════════════════
+
+winners:
+- id, name_arabic, name_english, phone_number, created_at
+
+page_visits:
+- id, ip_address, tracked_emp_id, tracked_name_english, tracked_name_arabic,
+  tracked_email, country, city, timezone, language, screen_size, color_scheme,
+  browser, os, platform, user_agent, referrer, touch_screen, orientation,
+  gpu, ram, cpu_cores, device_type, device_model, pixel_ratio,
+  connection_type, battery_level, visit_time
+
+unique_links:
+- id, unique_code, emp_id, name_arabic, name_english, email,
+  clicks, last_click, created_at
+
+
+🎯 EMPLOYEE LINK FORMAT
+════════════════════════
+https://yourdomain.com/prize/visit.php?code=[unique_16_char_code]
+
+Each employee gets a unique tracking link.
+When clicked, it:
+1. Increments click counter
+2. Sets session tracking
+3. Redirects to index.php
+4. Logs detailed visitor info
+
+
+✅ POST-DEPLOYMENT CHECKLIST
+══════════════════════════════
+□ All files uploaded
+□ Database credentials updated in ALL 6 PHP files
+□ Base URL updated in view_links.php
+□ Database created successfully
+□ generate_links.php executed successfully
+□ Test submission on index.php works
+□ Unique tracking links work correctly
+□ Visitor logging captures data
+□ Arabic text displays correctly
+□ Logo image shows properly
+
+
+📞 SUPPORT NOTES
+═════════════════
+- If Arabic text shows as ??? → Check database charset (utf8mb4)
+- If "Unknown country" → Normal for private/internal IPs
+- If database errors → Verify credentials and database exists
+- If logo missing → Check file upload and path
+
+
+═══════════════════════════════════════════════════════════════
+                    DEPLOYMENT COMPLETE!
+═══════════════════════════════════════════════════════════════
