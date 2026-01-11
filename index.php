@@ -1,135 +1,225 @@
 <?php
 session_start();
 
-// Database configuration - Use environment variables for Vercel
-$host = getenv('DB_HOST') ?: 'localhost';
-$dbname = getenv('DB_NAME') ?: 'prize_db';
-$username = getenv('DB_USER') ?: 'root';
-$password = getenv('DB_PASS') ?: '';
+// Database configuration - Use environment variables for Supabase/PostgreSQL
+$postgres_url = getenv('POSTGRES_URL');
+
+// If PostgreSQL URL is available (production/Supabase), use it
+if ($postgres_url) {
+    // Parse PostgreSQL connection URL
+    $db_parts = parse_url($postgres_url);
+    $host = $db_parts['host'];
+    $dbname = ltrim($db_parts['path'], '/');
+    $username = $db_parts['user'];
+    $password = $db_parts['pass'];
+    $port = $db_parts['port'] ?? 5432;
+    
+    // Extract SSL mode from query string
+    parse_str($db_parts['query'] ?? '', $query_params);
+    $sslmode = $query_params['sslmode'] ?? 'require';
+    
+    $is_postgres = true;
+} else {
+    // Fallback to local MySQL for development
+    $host = 'localhost';
+    $dbname = 'prize_db';
+    $username = 'root';
+    $password = '';
+    $port = 3306;
+    $is_postgres = false;
+}
 
 $success_message = '';
 $error_message = '';
 
-// Auto-create database and table if not exists (only for local development)
+// Auto-create database and table if not exists
 try {
-    // For Vercel, skip database creation (use existing database)
-    if (getenv('VERCEL')) {
-        $conn_setup = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
+    // Connect to database
+    if ($is_postgres) {
+        // PostgreSQL connection
+        $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;sslmode=$sslmode";
+        $conn_setup = new PDO($dsn, $username, $password);
     } else {
+        // MySQL connection (local development)
         $conn_setup = new PDO("mysql:host=$host", $username, $password);
         $conn_setup->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
-        // Create database
+        // Create database for MySQL
         $conn_setup->exec("CREATE DATABASE IF NOT EXISTS $dbname CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
         $conn_setup->exec("USE $dbname");
     }
     $conn_setup->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Create table
-    $sql_create = "CREATE TABLE IF NOT EXISTS winners (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name_arabic VARCHAR(255) NOT NULL,
-        name_english VARCHAR(255) NOT NULL,
-        phone_number VARCHAR(20) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_created (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-    
-    $conn_setup->exec($sql_create);
+    // Create table with PostgreSQL or MySQL syntax
+    if ($is_postgres) {
+        // PostgreSQL syntax
+        $sql_create = "CREATE TABLE IF NOT EXISTS winners (
+            id SERIAL PRIMARY KEY,
+            name_arabic VARCHAR(255) NOT NULL,
+            name_english VARCHAR(255) NOT NULL,
+            phone_number VARCHAR(20) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )";
+        
+        $conn_setup->exec($sql_create);
+        $conn_setup->exec("CREATE INDEX IF NOT EXISTS idx_created ON winners(created_at)");
+    } else {
+        // MySQL syntax
+        $sql_create = "CREATE TABLE IF NOT EXISTS winners (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name_arabic VARCHAR(255) NOT NULL,
+            name_english VARCHAR(255) NOT NULL,
+            phone_number VARCHAR(20) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        
+        $conn_setup->exec($sql_create);
+    }
     
     // Create page visits tracking table
-    $sql_visits = "CREATE TABLE IF NOT EXISTS page_visits (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        ip_address VARCHAR(45) NOT NULL,
-        local_ip VARCHAR(45),
-        tracked_emp_id VARCHAR(50),
-        tracked_name_arabic VARCHAR(255),
-        tracked_name_english VARCHAR(255),
-        tracked_email VARCHAR(255),
-        country VARCHAR(100),
-        city VARCHAR(100),
-        timezone VARCHAR(50),
-        language VARCHAR(50),
-        screen_size VARCHAR(50),
-        color_scheme VARCHAR(20),
-        browser VARCHAR(100),
-        os VARCHAR(100),
-        platform VARCHAR(50),
-        user_agent TEXT,
-        referrer TEXT,
-        touch_screen VARCHAR(10),
-        orientation VARCHAR(50),
-        gpu TEXT,
-        ram VARCHAR(50),
-        cpu_cores VARCHAR(20),
-        device_type VARCHAR(20),
-        device_model VARCHAR(100),
-        pixel_ratio VARCHAR(20),
-        connection_type VARCHAR(50),
-        battery_level VARCHAR(20),
-        visit_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_ip (ip_address),
-        INDEX idx_time (visit_time),
-        INDEX idx_country (country),
-        INDEX idx_tracked_emp (tracked_emp_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+    if ($is_postgres) {
+        // PostgreSQL syntax
+        $sql_visits = "CREATE TABLE IF NOT EXISTS page_visits (
+            id SERIAL PRIMARY KEY,
+            ip_address VARCHAR(45) NOT NULL,
+            local_ip VARCHAR(45),
+            tracked_emp_id VARCHAR(50),
+            tracked_name_arabic VARCHAR(255),
+            tracked_name_english VARCHAR(255),
+            tracked_email VARCHAR(255),
+            country VARCHAR(100),
+            city VARCHAR(100),
+            timezone VARCHAR(50),
+            language VARCHAR(50),
+            screen_size VARCHAR(50),
+            color_scheme VARCHAR(20),
+            browser VARCHAR(100),
+            os VARCHAR(100),
+            platform VARCHAR(50),
+            user_agent TEXT,
+            referrer TEXT,
+            touch_screen VARCHAR(10),
+            orientation VARCHAR(50),
+            gpu TEXT,
+            ram VARCHAR(50),
+            cpu_cores VARCHAR(20),
+            device_type VARCHAR(20),
+            device_model VARCHAR(100),
+            pixel_ratio VARCHAR(20),
+            connection_type VARCHAR(50),
+            battery_level VARCHAR(20),
+            visit_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )";
+        
+        $conn_setup->exec($sql_visits);
+        
+        // Create indexes
+        $conn_setup->exec("CREATE INDEX IF NOT EXISTS idx_ip ON page_visits(ip_address)");
+        $conn_setup->exec("CREATE INDEX IF NOT EXISTS idx_time ON page_visits(visit_time)");
+        $conn_setup->exec("CREATE INDEX IF NOT EXISTS idx_country ON page_visits(country)");
+        $conn_setup->exec("CREATE INDEX IF NOT EXISTS idx_tracked_emp ON page_visits(tracked_emp_id)");
+    } else {
+        // MySQL syntax
+        $sql_visits = "CREATE TABLE IF NOT EXISTS page_visits (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            ip_address VARCHAR(45) NOT NULL,
+            local_ip VARCHAR(45),
+            tracked_emp_id VARCHAR(50),
+            tracked_name_arabic VARCHAR(255),
+            tracked_name_english VARCHAR(255),
+            tracked_email VARCHAR(255),
+            country VARCHAR(100),
+            city VARCHAR(100),
+            timezone VARCHAR(50),
+            language VARCHAR(50),
+            screen_size VARCHAR(50),
+            color_scheme VARCHAR(20),
+            browser VARCHAR(100),
+            os VARCHAR(100),
+            platform VARCHAR(50),
+            user_agent TEXT,
+            referrer TEXT,
+            touch_screen VARCHAR(10),
+            orientation VARCHAR(50),
+            gpu TEXT,
+            ram VARCHAR(50),
+            cpu_cores VARCHAR(20),
+            device_type VARCHAR(20),
+            device_model VARCHAR(100),
+            pixel_ratio VARCHAR(20),
+            connection_type VARCHAR(50),
+            battery_level VARCHAR(20),
+            visit_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_ip (ip_address),
+            INDEX idx_time (visit_time),
+            INDEX idx_country (country),
+            INDEX idx_tracked_emp (tracked_emp_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        
+        $conn_setup->exec($sql_visits);
+    }
     
-    $conn_setup->exec($sql_visits);
-    
-    // Migrate existing table - add new columns if they don't exist
-    $columns_to_add = [
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS local_ip VARCHAR(45)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS tracked_emp_id VARCHAR(50)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS tracked_name_arabic VARCHAR(255)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS tracked_name_english VARCHAR(255)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS tracked_email VARCHAR(255)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS country VARCHAR(100)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS city VARCHAR(100)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS timezone VARCHAR(50)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS language VARCHAR(50)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS screen_size VARCHAR(50)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS color_scheme VARCHAR(20)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS browser VARCHAR(100)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS os VARCHAR(100)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS platform VARCHAR(50)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS referrer TEXT",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS touch_screen VARCHAR(10)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS orientation VARCHAR(50)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS gpu TEXT",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS ram VARCHAR(50)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS cpu_cores VARCHAR(20)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS device_type VARCHAR(20)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS device_model VARCHAR(100)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS pixel_ratio VARCHAR(20)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS connection_type VARCHAR(50)",
-        "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS battery_level VARCHAR(20)"
-    ];
-    
-    foreach ($columns_to_add as $alter_sql) {
-        try {
-            $conn_setup->exec($alter_sql);
-        } catch(PDOException $e) {
-            // Column might already exist, continue
+    // Migrate existing table - add new columns if they don't exist (MySQL only)
+    if (!$is_postgres) {
+        $columns_to_add = [
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS local_ip VARCHAR(45)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS tracked_emp_id VARCHAR(50)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS tracked_name_arabic VARCHAR(255)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS tracked_name_english VARCHAR(255)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS tracked_email VARCHAR(255)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS country VARCHAR(100)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS city VARCHAR(100)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS timezone VARCHAR(50)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS language VARCHAR(50)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS screen_size VARCHAR(50)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS color_scheme VARCHAR(20)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS browser VARCHAR(100)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS os VARCHAR(100)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS platform VARCHAR(50)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS referrer TEXT",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS touch_screen VARCHAR(10)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS orientation VARCHAR(50)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS gpu TEXT",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS ram VARCHAR(50)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS cpu_cores VARCHAR(20)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS device_type VARCHAR(20)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS device_model VARCHAR(100)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS pixel_ratio VARCHAR(20)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS connection_type VARCHAR(50)",
+            "ALTER TABLE page_visits ADD COLUMN IF NOT EXISTS battery_level VARCHAR(20)"
+        ];
+        
+        foreach ($columns_to_add as $alter_sql) {
+            try {
+                $conn_setup->exec($alter_sql);
+            } catch(PDOException $e) {
+                // Column might already exist, continue
+            }
         }
-    }
-    
-    // Add phone_number column if not exists
-    $conn_setup->exec("ALTER TABLE winners ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20) NOT NULL DEFAULT ''");
-    
-    // Remove old columns if exist
-    $result = $conn_setup->query("SHOW COLUMNS FROM winners LIKE 'employee_id'");
-    if ($result->rowCount() > 0) {
-        $conn_setup->exec("ALTER TABLE winners DROP COLUMN employee_id");
-    }
-    
-    $result = $conn_setup->query("SHOW COLUMNS FROM winners LIKE 'iban_number'");
-    if ($result->rowCount() > 0) {
-        $conn_setup->exec("ALTER TABLE winners DROP COLUMN iban_number");
-    }
-    
-    $result = $conn_setup->query("SHOW COLUMNS FROM winners LIKE 'ip_address'");
-    if ($result->rowCount() > 0) {
-        $conn_setup->exec("ALTER TABLE winners DROP COLUMN ip_address");
+        
+        // Add phone_number column if not exists (MySQL)
+        try {
+            $conn_setup->exec("ALTER TABLE winners ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20) NOT NULL DEFAULT ''");
+        } catch(PDOException $e) {
+            // Column might already exist
+        }
+        
+        // Remove old columns if exist (MySQL)
+        $result = $conn_setup->query("SHOW COLUMNS FROM winners LIKE 'employee_id'");
+        if ($result->rowCount() > 0) {
+            $conn_setup->exec("ALTER TABLE winners DROP COLUMN employee_id");
+        }
+        
+        $result = $conn_setup->query("SHOW COLUMNS FROM winners LIKE 'iban_number'");
+        if ($result->rowCount() > 0) {
+            $conn_setup->exec("ALTER TABLE winners DROP COLUMN iban_number");
+        }
+        
+        $result = $conn_setup->query("SHOW COLUMNS FROM winners LIKE 'ip_address'");
+        if ($result->rowCount() > 0) {
+            $conn_setup->exec("ALTER TABLE winners DROP COLUMN ip_address");
+        }
     }
 } catch(PDOException $e) {
     // Silently continue - errors will be caught in form submission
