@@ -1,10 +1,7 @@
 {
   "version": 2,
   "functions": {
-    "api/**/*.php": {
-      "runtime": "vercel-php@0.7.0"
-    },
-    "*.php": {
+    "api/*.php": {
       "runtime": "vercel-php@0.7.0"
     }
   },
@@ -15,15 +12,17 @@
     },
     {
       "src": "/",
-      "dest": "/index.php"
-    },
-    {
-      "src": "/(.*\\.php)",
-      "dest": "/$1"
+      "dest": "/api/index.php"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.php"
+      "dest": "/api/index.php"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.php"
     }
   ]
 }
